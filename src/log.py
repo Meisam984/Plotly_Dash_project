@@ -1,8 +1,11 @@
 import json
+import os
 import sys
 import logging
 import logging.config
 from datetime import datetime
+
+os.makedirs('.logs')
 
 # Set the logger config, using dictConfig and loading the log_dict_config.json
 with open(file='log_dict_config.json') as f:
