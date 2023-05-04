@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "root": {
+    "level": "DEBUG",
+    "handlers": ["console"]
+  },
+  "loggers": {
+    "main": {
+      "qualname": "main",
+      "level": "INFO",
+      "handlers": ["console", "file"]
+    }
+  },
+  "handlers": {
+    "console": {
+      "class": "logging.StreamHandler",
+      "formatter": "standard",
+      "level": "INFO",
+      "stream": "ext://sys.stdout"
+    },
+    "file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "formatter": "standard",
+      "maxBytes": 500000,
+      "backupCount": "3"
+    }
+  },
+  "formatters": {
+    "standard": {
+      "format": "%(asctime)s - [%(levelname)s] -  %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s",
+      "datefmt": "%A, %B-%d-%Y %H:%M:%S"
+    }
+  }
+}
