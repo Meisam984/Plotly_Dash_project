@@ -6,6 +6,7 @@ import pandas as pd
 import dill
 import os
 from typing import List, Any
+from persiantools.jdatetime import JalaliDate
 
 _ = load_dotenv(find_dotenv())
 
@@ -61,6 +62,15 @@ def fetch_tables_dict(tables_list: List[str], schema:str):
             raise CustomException(e)
         
         try:
+            df_ind.insert(loc=1, column='jal_date', value=jalali_str_to_greg(df_ind['j_date'])['jalali'])                    
+            df_ind.insert(loc=2, column='greg_date', value=jalali_str_to_greg(df_ind['j_date'])['gregorian'])
+            df_ind.drop(columns=['j_date'], inplace=True)
+            logger.info(f"Added the 'jal_date' and 'greg_date' columns to the dataframe {table} as datetime type.")
+
+        except Exception as e:
+            raise CustomException(e)
+        
+        try:
             for col in df_ind.columns.values.tolist():
                 if any([x in col for x in ['id', 'meta']]):
                     df_ind = df_ind.astype({col: str})
@@ -100,3 +110,23 @@ def load_obj(file_path:str):
             return obj
     except Exception as e:
         raise CustomException(e)
+    
+
+# Convert string date to Jalali and Gregorian dates in a dictionary
+def jalali_str_to_greg(date_str_series):
+    date_str_df = date_str_series.str.split('/', expand=True)
+    year_series = date_str_df[0].astype(int)
+    month_series = date_str_df[1].astype(int)
+    day_series = date_str_df[2].astype(int)
+
+    j_dates = []
+    g_dates = []
+    for i in year_series.index:
+        j_dates.append(JalaliDate(year_series[i], month_series[i], day_series[i]))
+        g_dates.append(JalaliDate(year_series[i], month_series[i], day_series[i]).to_gregorian())
+
+    j_date_series = pd.Series(j_dates)
+    g_date_series = pd.Series(g_dates)
+    dict_date_series = dict(jalali=j_date_series, gregorian=g_date_series)
+    return dict_date_series
+
