@@ -3,6 +3,7 @@ from dotenv import load_dotenv, find_dotenv
 from src.exceptions import CustomException
 from src.log import logger
 import pandas as pd
+import talib as ta
 import dill
 import os
 from typing import List, Any
@@ -39,8 +40,9 @@ def fetch_tables_list(schema: str):
         for r in result:
             if all([x not in r[0] for x in ['energy', 'property']]):
                 tables_list.append(r[0])
-            logger.info(f"Added table name {r[0]} to tables list.")
-        return (tables_list, schema)
+                logger.info(f"Added table name {r[0]} to tables list.")
+                
+        return tables_list
     except Exception as e:
         raise CustomException(e)
     
@@ -69,18 +71,7 @@ def fetch_tables_dict(tables_list: List[str], schema:str):
 
         except Exception as e:
             raise CustomException(e)
-        
-        try:
-            for col in df_ind.columns.values.tolist():
-                if any([x in col for x in ['id', 'meta']]):
-                    df_ind = df_ind.astype({col: str})
-                    logger.info(f"Converted the column, {col}, type into string.")
-            
-            df_dict[table] = df_ind
-            logger.info(f"Added table {table} to the df_dict object.")
-        except Exception as e:
-            raise CustomException(e)
-    
+    print(df_dict)        
     return df_dict
 
 
@@ -130,3 +121,62 @@ def jalali_str_to_greg(date_str_series):
     dict_date_series = dict(jalali=j_date_series, gregorian=g_date_series)
     return dict_date_series
 
+
+# Define trading indicators columns
+def add_trade_indicators(train_df, test_df, df_name):
+    
+    # Calculate Relative Strength Index (RSI)
+    RSI_PERIOD = 14
+    train_df['rsi'] = ta.RSI(train_df['close_price'], RSI_PERIOD) 
+    test_df["rsi"] = ta.RSI(test_df["close_price"], RSI_PERIOD)
+    logger.info(f"'rsi' column created, for train and test dataframes in {df_name}")
+
+    # Calculate Moving Average Convergence Divergence (MACD)
+    MACD_FAST_EMA = 12
+    MACD_SLOW_EMA = 26
+    MACD_SIGNAL_PERIOD = 9 
+
+    train_df['macd'], train_df['signal'], train_df['hist'] = ta.MACD(train_df['close_price'], 
+                                                      fastperiod=MACD_FAST_EMA, 
+                                                      slowperiod=MACD_SLOW_EMA, 
+                                                      signalperiod=MACD_SIGNAL_PERIOD)
+    test_df['macd'], test_df['signal'], test_df['hist'] = ta.MACD(test_df['close_price'], 
+                                                      fastperiod=MACD_FAST_EMA, 
+                                                      slowperiod=MACD_SLOW_EMA, 
+                                                      signalperiod=MACD_SIGNAL_PERIOD)
+    logger.info(f"'macd', 'signal' and 'hist' columns created, for train and test dataframes in {df_name}")
+
+    # Calculate Bollinger Bands (BB)
+    # 20-day moving average 
+    BBANDS_PERIOD = 20
+
+    train_df['upper_bb'], train_df['middle_bb'], train_df['lower_bb'] = ta.BBANDS(train_df['close_price'])
+    test_df['upper_bb'], test_df['middle_bb'], test_df['lower_bb'] = ta.BBANDS(test_df['close_price'])
+    logger.info(f"'upper_bb', 'middle_bb' and 'lower_bb' columns created, for train and test dataframes in {df_name}")
+
+    return [train_df, test_df]
+
+
+# Define label column
+def add_label(train_df, test_df, df_name):
+    # Function to determine the label based on the indicators
+    def get_label(row):
+        if (row['rsi'] > 70 and \
+           row['macd'] < 0 and \
+           row['upper_bb'] > row['upper_bb'].quantile(0.9) and \
+           row['lower_bb'] < row['lower_bb'].quantile(0.9)):
+                return 'SELL'
+        elif (row['rsi'] < 30 and \
+             row['macd'] > 0 and \
+             row['upper_bb'] < row['upper_bb'].quantile(0.1) and \
+             row['lower_bb'] > row['lower_bb'].quantile(0.1)):
+                return 'BUY'
+        else:
+            return 'HOLD'
+
+    # Apply the function to create the label column
+    train_df['label'] = train_df.apply(get_label, axis=1)
+    test_df['label'] = test_df.apply(get_label, axis=1)
+    logger.info(f"Added label column, wrt indicators for dataframe {df_name}.")
+
+    return [train_df, test_df]

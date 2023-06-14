@@ -17,7 +17,7 @@ def fetch_requirements(file_path: str) -> List[str]:
 
 
 setup(
-    name="Plotly_Dash_project",
+    name="Trading_Dash_app",
     version="0.0.1",
     description="A web app based on Streamlit to visualize components, using Plotly Dash",
     author="Meisam Rezaei",

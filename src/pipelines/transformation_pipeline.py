@@ -14,14 +14,14 @@ import pandas as pd
 class TransformationPipelineConfig:
 
     def __init__(self):
-        self.__df_name_list = fetch_tables_list(schema='production')[0]
-        self.__df_paths_dict = self.__data_paths()
-        self.__preprocessor_pipeline_paths_dict = self.__prep_pipeline_paths()
+        self.df_name_list = fetch_tables_list(schema='production')
+        self.df_paths_dict = self.__data_paths()
+        self.preprocessor_pipeline_paths_dict = self.__prep_pipeline_paths()
 
     def __prep_pipeline_paths(self):
        paths = {}
        try:
-           for  df_name in self.__df_name_list:
+           for df_name in self.df_name_list:
                paths[df_name] = os.path.join('.artifacts', df_name, 'preprocessor_pipeline.pkl')
                logger.info(f"Defined the preprocessor pipeline path for dataframe {df_name}.")
 
@@ -32,8 +32,11 @@ class TransformationPipelineConfig:
     def __data_paths(self):
         paths = {}
         try:
-            for df_name in self.__df_name_list:
+            for df_name in self.df_name_list:
                 paths[df_name] = os.path.join('.artifacts', df_name, 'raw.csv')
+                logger.info(f"Defined the raw data path for dataframe {df_name}.")
+
+            return paths
         except Exception as e:
             raise CustomException(e)
 
@@ -45,20 +48,35 @@ class TransformationPipeline:
 
         
     def initiate_transformation_pipeline(self):
-        df_name_list = self.__transformation_pipeline_config.__df_name_list
-        df_paths_dict = self.__transformation_pipeline_config.__df_paths_dict
-        prep_pip_paths_dict = self.__transformation_pipeline_config.__preprocessor_pipeline_paths_dict
+        df_name_list = self.__transformation_pipeline_config.df_name_list
+        df_paths_dict = self.__transformation_pipeline_config.df_paths_dict
+        prep_pip_paths_dict = self.__transformation_pipeline_config.preprocessor_pipeline_paths_dict
 
         for df_name in df_name_list:
             
             df = pd.read_csv(df_paths_dict[df_name])
-            logger.info(f"Stored the dataframe df, reading through '.artifacts/{df_name}/raw.csv'.") 
+            logger.info(f"Stored the dataframe df, reading through '.artifacts/{df_name}/raw.csv'.")
 
-            cat_feats = df.select_dtypes(include=['object']).columns.to_list()
+            try:
+                for col in df.columns.values.tolist():
+                    if any([x in col for x in ['id', 'meta']]):
+                        df_ind = df_ind.astype({col: str})
+                        logger.info(f"Converted the column, {col}, type into string.")
+                    if col in ['category.id', 'market.id']:
+                        df_ind[col] = df_ind[col].astype('category')
+                        logger.info(f"Converted the column, {col}, type into category.")
+
+                print(df.info())
+            except Exception as e:
+                raise CustomException(e)
+
+            cat_feats = df.select_dtypes(include=['category']).columns.to_list()
             logger.info("Stored the categorical features into the list 'cat_feats'.")
+            print(cat_feats)
 
-            num_feats = df.select_dtypes(exclude=['object']).columns.to_list()
+            num_feats = df.select_dtypes(include=['number']).columns.to_list()
             logger.info("Stored the numerical features into the list 'num_feats'.")
+            print(num_feats)
 
             try:
                 num_pipeline = Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),

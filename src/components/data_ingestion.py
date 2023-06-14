@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 # Data ingestion config class
 class DataIngestionConfig:
     def __init__(self):
-        self.df_name_list = fetch_tables_list(schema='production')[0]
+        self.df_name_list = fetch_tables_list(schema='production')
         self.df_dict = fetch_tables_dict(self.df_name_list, 'production')
         self.data_paths_dict = self.__data_paths()
         
@@ -76,7 +76,5 @@ class DataIngestion:
             except Exception as e:
                 raise CustomException(e)
                 
-        return (train_data_dict, test_data_dict)
+        return [train_data_dict, test_data_dict]
 
-
-DataIngestion().initiate_data_ingestion()

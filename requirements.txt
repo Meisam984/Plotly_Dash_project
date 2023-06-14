@@ -10,4 +10,5 @@ python-dotenv
 psycopg2
 dill
 persiantools
+ta-lib
 -e .
